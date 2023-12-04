@@ -9,14 +9,14 @@ const corsOptions = {
     optionsSuccessStatus: 204
   };
 app.use(cors(corsOptions))
-const { connectToDb, getDb } = require("./db")
+
 const http = require('http')
 const server = http.createServer(app)
 var bodyParser = require('body-parser')
 const ws = require('ws')
-let db
-app.use(bodyParser.urlencoded({ extended: true }))
 const { ObjectId } = require('mongodb')
+
+app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 const CLIENT_APP = process.env.CLIENT_APP
 
@@ -46,7 +46,7 @@ connectDB().then(() => {
 
     }
 
-    // db = getDb()
+ 
 })
 const io = require("socket.io")(server, {
     maxHttpBufferSize: 1e8,
@@ -201,7 +201,9 @@ const Users = require('./models/users')
 const Creators = require('./models/creators')
 const Collections = require("./models/collections")
 const Questions = require("./models/questions")
-
+app.get("/" , (req,res) => {
+    res.status(200).json("hello")
+})
 
 app.post("/users", (req, res) => {
     Users.create(req.body)
