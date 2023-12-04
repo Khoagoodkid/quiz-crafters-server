@@ -15,18 +15,38 @@ require('dotenv').config();
 const CLIENT_APP = process.env.CLIENT_APP
 
 console.log(CLIENT_APP)
-connectToDb((err) => {
-    if (!err) {
-        app.listen(3000, () => {
-            console.log("Server is running on port 3000")
-        })
-
-        server.listen(8080, () => {
-            console.log("Server is running on port 8080")
-        })
-        db = getDb()
+const mongoose = require("mongoose")
+mongoose.set("strictQuery", false)
+const connectDB = async () => {
+    try {
+        const conn = await mongoose.connect(process.env.MONGO_URI);
+        console.log(conn.connection.host)
+    } catch (err) {
+        console.log(err)
     }
+}
+connectDB().then(() => {
+    app.listen(3000, () => {
+        console.log("Server is running on port 3000")
+    })
+
+    server.listen(8080, () => {
+        console.log("Server is running on port 8080")
+    })
+    // db = getDb()
 })
+// connectToDb((err) => {
+//     if (!err) {
+//         app.listen(3000, () => {
+//             console.log("Server is running on port 3000")
+//         })
+
+//         server.listen(8080, () => {
+//             console.log("Server is running on port 8080")
+//         })
+//         db = getDb()
+//     }
+// })
 
 const io = require("socket.io")(server, {
     maxHttpBufferSize: 1e8,
@@ -89,8 +109,7 @@ io.on("connection", socket => {
                 io.to(roomId).emit("clearMembers", [])
                 delete rooms[roomId]
                 delete messages[roomId];
-                db.collection("users")
-                    .deleteMany({ roomId: roomId }) 
+                Users.deleteMany({ roomId: roomId })
                 return
             }
             rooms[roomId]?.splice(rooms[roomId].indexOf(socket.id), 1)
@@ -100,10 +119,8 @@ io.on("connection", socket => {
             // console.log(rooms[roomId])
             io.to(roomId).emit("memberLeft", rooms[roomId])
             // io.to(roomCreators[roomId]).emit("memberLeft", rooms[roomId])
-            db.collection("users").deleteOne({ socketId: socket.id }, (err, res) => {
-                if (err) throw err;
-                // Handle response
-            });
+            Users.deleteOne({ socketId: socket.id })
+          
         })
 
     })
@@ -141,8 +158,8 @@ io.on("connection", socket => {
         // io.to(roomCreators[roomId]).emit("clearMembers", [])
         delete rooms[roomId]
         delete messages[roomId];
-        db.collection("users")
-            .deleteMany({ roomId: roomId })
+
+        Users.deleteMany({ roomId: roomId })
     })
 
 
@@ -169,15 +186,20 @@ io.on("connection", socket => {
     })
 })
 
+const Users = require('./models/users')
+const Creators = require('./models/creators')
+const Collections = require("./models/collections")
+const Questions = require("./models/questions")
+
+
 app.post("/users", (req, res) => {
-    console.log(req.body)
-    db.collection("users")
-        .insertOne(req.body)
+    Users.create(req.body)
+    .then(() => res.status(200).json("Created!"))
+    .catch(err => res.status(500).json(err)) 
 })
 app.get('/users/:socketId', (req, res) => {
     // console.log(req.params.socketId)
-    db.collection("users")
-        .findOne({ socketId: req.params.socketId })
+    Users.findOne({ socketId: req.params.socketId })
         .then(doc => {
             res.status(200).json(doc)
         })
@@ -188,10 +210,9 @@ app.get('/users/:socketId', (req, res) => {
 app.patch('/users/:socketId', (req, res) => {
     // console.log(req.params.socketId)
     // console.log(req.body)
-    db.collection("users")
-        .updateOne({ socketId: req.params.socketId }, {
-            $set: { points: req.body.curPoint }
-        })
+    Users.updateOne({ socketId: req.params.socketId }, {
+        $set: { points: req.body.curPoint }
+    })
         .then(doc => {
             res.status(200).json(doc)
         })
@@ -202,7 +223,7 @@ app.patch('/users/:socketId', (req, res) => {
 app.get("/users/:roomId", (req, res) => {
     const users = []
     console.log(req.params.roomId)
-    db.collection("users").find({
+    Users.findMany({
         roomId: req.params.roomId
     }).toArray()
         .forEach(user => users.push(user))
@@ -212,9 +233,9 @@ app.get("/users/:roomId", (req, res) => {
 })
 let users = []
 app.get("/users", (req, res) => {
-    db.collection("users").find().toArray()
+    Users.find()
         .then(doc => {
-            users = doc.slice()
+           
             res.status(200).json(doc)
         })
         .catch(err => {
@@ -222,48 +243,38 @@ app.get("/users", (req, res) => {
         })
 })
 app.post('/creators', (req, res) => {
-    db.collection("creators").insertOne(req.body)
-        .then(doc => {
-
-            res.status(200).json(doc)
-        })
-        .catch(err => {
-            res.status(500).json("Got error!")
-        })
+    console.log(req.body)
+    Creators.create(req.body)
+       
 })
 app.get('/creators/:id', (req, res) => {
-    db.collection("creators")
-        .findOne({
-            _id: new ObjectId(req.params.id)
-        })
-        .then(user => res.status(200).json(user))
-        .catch(err => res.status(500).json(err))
+    Creators.findById(req.params.id)
+    .then(user => res.status(200).json(user))
+    .catch(err => res.status(500).json(err))
+    
 })
 app.get('/creators/:email', (req, res) => {
-    db.collection("creators")
-        .findOne({
-            email: req.params.email
-        })
+    Creators.findOne({
+        email: req.params.email
+    })
         .then(user => res.status(200).json(user))
         .catch(err => res.status(500).json(err))
 })
 app.get('/creators/:email/:password', (req, res) => {
-    db.collection('creators')
-        .findOne({
-            'email': req.params.email,
-            'password': req.params.password
-        })
+    Creators.findOne({
+        'email': req.params.email,
+        'password': req.params.password
+    })
         .then(user => res.status(200).json(user))
         .catch(err => res.status(500).json("Error!"))
 })
 app.post('/questions', (req, res) => {
-    db.collection("questions")
-        .insertOne(req.body)
+    Questions.create(req.body)
         .then(doc => res.status(200).json(doc))
         .catch(err => res.status(500).json("Error!"))
 })
 app.get('/questions', (req, res) => {
-    db.collection("questions").find().toArray()
+    Questions.find().toArray()
         .then(doc => {
             res.status(200).json(doc)
         })
@@ -273,44 +284,48 @@ app.get('/questions', (req, res) => {
 })
 app.get('/questions/:colId', (req, res) => {
     const questions = []
-    db.collection("questions")
-        .find({
-            collectionId: req.params.colId
-        })
-        .forEach(ques => questions.push(ques))
-        .then(() => res.status(200).json(questions))
+    Questions.find({
+        collectionId: req.params.colId
+    })
+        // .forEach(ques => questions.push(ques))
+        .then((docs) => res.status(200).json(docs))
         .catch(err => res.status(500).json(err))
 })
 app.delete('/questions/:id', (req, res) => {
-    db.collection("questions")
-        .deleteOne({
-            _id: new ObjectId(req.params.id)
-        })
+    Questions.deleteOne({
+        _id: new ObjectId(req.params.id)
+    })
         .then((doc) => res.status(200).json(doc))
         .catch(err => res.status(500).json(err))
 })
 app.post('/collections', (req, res) => {
-    db.collection('collections')
-        .insertOne(req.body)
+    Collections.create(req.body)
         .then(doc => res.status(200).json(doc))
         .catch(err => res.status(500).json("Error!"))
 })
 app.get('/collections/:userId', (req, res) => {
     const collections = []
-    db.collection('collections')
-        .find({ userId: req.params.userId })
-        .forEach((col) => collections.push(col))
-        .then(() => res.status(200).json(collections))
+    Collections.find({ userId: req.params.userId })
+        // .forEach((col) => collections.push(col))
+        .then((docs) => res.status(200).json(docs))
         .catch((err) => res.status(500).json(err))
 })
 app.patch('/questions/:id', (req, res) => {
-    db.collection("questions")
-        .updateOne({
-            _id: new ObjectId(req.params.id)
-        }, {
-            $set: {
-                query: req.body.query,
-                choices: req.body.choices
-            }
-        })
+ 
+    Questions.updateOne({
+        _id: new ObjectId(req.params.id)
+    }, {
+        $set: {
+            query: req.body.query,
+            choices: req.body.choices
+        }
+    })   
+    .then(result => {
+        // Send a success response
+        res.status(200).send({ message: 'Question updated successfully', result });
+    })
+    .catch(error => {
+        // Send an error response
+        res.status(500).send({ message: 'Error updating question', error });
+    });
 })
