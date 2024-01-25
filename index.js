@@ -1,9 +1,13 @@
 require('dotenv').config();
 const express = require('express')
 const app = express()
+var bodyParser = require('body-parser')
+
+app.use(bodyParser.urlencoded({ extended: true }))
+app.use(bodyParser.json())
 const cors = require('cors')
 const corsOptions = {
-    origin: process.env.CLIENT_APP, // or use true to allow all origins
+    origin: "https://quiz-crafters.onrender.com", // or use true to allow all origins
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 204
@@ -12,28 +16,26 @@ app.use(cors(corsOptions))
 
 const http = require('http')
 const server = http.createServer(app)
-var bodyParser = require('body-parser')
 const ws = require('ws')
 const { ObjectId } = require('mongodb')
-
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json())
-const CLIENT_APP = process.env.CLIENT_APP
+const CLIENT_APP = "https://quiz-crafters.onrender.com"
 
 console.log(CLIENT_APP)
 const mongoose = require("mongoose")
 mongoose.set("strictQuery", false)
 const connectDB = async () => {
     try {
-        const conn = await mongoose.connect(process.env.MONGO_URI);
+        const conn = await mongoose.connect(process.env.MONGO_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            dbName: 'test'
+        });
         console.log(conn.connection.host)
     } catch (err) {
         console.log(err)
     }
 }
 connectDB().then(() => {
-
-
         server.listen(8080, () => {
             console.log("Server is running on port 8080")
         })
@@ -42,11 +44,6 @@ connectDB().then(() => {
         app.listen(3000, () => {
             console.log("Server is running on port 3000")
         })
-       
-
-  
-
- 
 })
 const io = require("socket.io")(server, {
     maxHttpBufferSize: 1e8,
