@@ -12,13 +12,14 @@ const corsOptions = {
     credentials: true,
     optionsSuccessStatus: 204
   };
-app.use(cors(corsOptions))
+app.use(cors())
 
 const http = require('http')
 const server = http.createServer(app)
 const ws = require('ws')
 const { ObjectId } = require('mongodb')
 const CLIENT_APP = "https://quiz-crafters.onrender.com"
+// const CLIENT_APP = process.env.CLIENT_APP
 
 console.log(CLIENT_APP)
 const mongoose = require("mongoose")
@@ -36,14 +37,14 @@ const connectDB = async () => {
     }
 }
 connectDB().then(() => {
-        server.listen(8080, () => {
-            console.log("Server is running on port 8080")
+        server.listen(3000, () => {
+            console.log("Server is running on port 3000")
         })
       
   
-        app.listen(3000, () => {
-            console.log("Server is running on port 3000")
-        })
+        // app.listen(3000, () => {
+        //     console.log("Server is running on port 3000")
+        // })
 })
 const io = require("socket.io")(server, {
     maxHttpBufferSize: 1e8,
